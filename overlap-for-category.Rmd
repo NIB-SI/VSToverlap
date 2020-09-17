@@ -1,0 +1,96 @@
+```{r}
+#' Area or time overlap for selected category
+#'
+#' details Select category and calculate time overlap with other categories.
+#' @param l, b, r, t Numeric vectors with rectangle defining coordinates (see [oa2()]).
+#' @param plt Logical, controls plotting
+#' @param category Character string, signal category.
+#' @param categories Character vector with categories to consider.
+#' @param detect Character string, What to detect: \code{"area"} or \code{"time"}.
+#' @param xlim, ylim, lwd, col, ... graphical parameters (see [par()])
+#' @return Vector with ovrlapped area, time, total area and
+#'    total time of category.
+ocat <- function(l,b,r,t, category, categories, detect="area"
+   , plt=FALSE
+   , xlim=range(l,r,na.rm=TRUE)
+   , ylim=range(b,t,na.rm=TRUE)
+   , lwd=NA
+   , col = NA
+   , ...
+   ){
+   di  <-  10
+   # !! lazy evaluation of ylim !!! bp and tp are defined in the body.
+   incat <- categories %in% category
+   ord <- order(l)
+l <- l[ord]
+b <- b[ord]
+r <- r[ord]
+t <- t[ord]
+categories <- categories[ord]
+
+colb <- c("grey","pink")[1+categories%in%category] # rectangle color
+orig <- seq(1,n*n,n+1)  # indices to the observed rectangles
+my.expand.grid <- function(x,di=10) t(expand.grid(x, min(n,(x+1)):min(n,(x+di))))
+what <- t(as.data.frame(lapply(which(incat), my.expand.grid, di=di)))
+dimnames(what)[[1]] <- 1:nrow(what)
+#print(tail(what,20))
+w <- r-l
+h <- t-b
+n <- length(l)
+left <- apply(cbind(l[what[,1]],l[what[,2]]),1,max)
+right <- apply(cbind(r[what[,1]],r[what[,2]]),1,min)
+bottom <- apply(cbind(b[what[,1]],b[what[,2]]),1,max)
+top <- apply(cbind(t[what[,1]],t[what[,2]]),1,min)
+width <- right - left
+height <- top - bottom
+total_wh <- sum((w*h)[incat])
+total_w <- sum(w[incat])
+total_n <- sum(incat)
+#print(total_w)
+if(detect=="time") over <- (width>0) else over <- (width>0)&(height>0)
+width[!over] <- 0
+height[!over] <- 0
+plot(width,height)
+abline(h=0,v=0)
+if(detect=="time") over_area <- NA else
+over_area <- sum(width*height)/total_wh  # in kHZ s
+over_time <- sum(width)/total_w
+over_avetime <- sum(width*height)/sum(height)
+over_avetime[is.na(over_avetime)] <- 0
+over_n <- sum(over)/(n-total_n)
+if(plt){
+  if(is.na(col)) col <- rgb(1,0.5+(1:n)/(2*n),0,0.75)
+  plot(0,0
+   , xlim=xlim
+   , ylim=ylim
+   , ann=FALSE
+   , type = "n"
+   , ...
+   )
+   box()
+   title(category)
+   usr <- par("usr")
+
+   if(!is.na(lwd))   {
+   #segments(left[over],bottom[over],right[over],top[over])
+   #segments(left[over],top[over],right[over],bottom[over])
+      rect(l,b,r,t, col=colb, border=NA, lwd=lwd)
+      }
+         rect(left[over],bottom[over],right[over],top[over]
+   , col = col
+   , border=NA)
+      text(usr[2]*0.9,usr[4]*0.9,paste0("Area: ", round(over_area,3),
+   "\nTime: ", round(over_time,3)),adj=1)
+   }
+return(c(
+     p_over_area=over_area
+   , total_area = total_wh
+   , p_over_time=over_time
+   , total_time = total_w
+#   , over_avetime=over_avetime
+   , over_n = sum(over)
+   , total_n = total_n
+   )
+   )
+}
+```
