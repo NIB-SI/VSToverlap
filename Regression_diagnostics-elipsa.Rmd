@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r include=FALSE}
-#knitr::opts_chunk$set(fig.path='./figs/',tidy=TRUE, dev=c("pdf","tiff","png"))
+knitr::opts_chunk$set(tidy=TRUE, dev=c("pdf","tiff"))
 knitr::opts_knit$set(concordance=TRUE)
 ```
 
@@ -59,53 +59,19 @@ rownames(X) <- novi
 X
 ```
 
-Data
-```{r}
-library(wrapr)
-X <- build_frame(   "label" ,        "pa",      "pt"|
-"C2", 0.07281110,0.09141146|
-"F6", 0.07258821,0.08186077|
-"T19",0.27478547,0.28580822|
-"T3", 0.05574227,0.15048404|
-"T8", 0.00000000,0.00000000|
-"F4", 0.04673702,0.04673702|
-"C1", 0.10869614,0.12546694|
-"T1", 0.34514132,0.42832951
-)
-rownames(X) <- X$label
-X <- X[,-1]
-knitr::kable(X)
-```
+Zanimiv je A7, ki je zdaj T3.
 
 
-Function to plot Mahalanobis ellipses
+
 ```{r }
-#' Draw Mahalanobis elliptical data envelopes
-#'
-#' @param x data frame, first two columns will be used for plotting
-#' @param points logical, if TRUE, points will be plotted
-#' @param seg logical, if TRUE segments showing the distance from PCA will be plotted
-#' @param q numeric vector, cumulative probabilities of ellipses
-#' @param ltys vector of line types for ellipses
-#' @param cex vector of point sizes
-#' @param colp vector of point colors
-#' @param bold character label for which bold font typface will be used
-#' @param dx numeric vector of label displacements in horizontal direction
-#' @param dy numeric vector of label displacements in vertical direction
-#' @param ... additional graphical parameters, passed to \code{plot}, \code{lines}, and \code{text}
-#' @return principal component object for plotted pair of variables
-#' @export
-#' @seealso \code{\link{par}}
-#' @note
-#' @title Mahalanobis ellipses
-#' @author Andrej Blejec \email{andrej.blejec@nib.si}
-#' @examples
-#' data <- data.frame(x=rnorm(10), y=rnorm(10))
-#' rownames(data) <- LETTERS[1:10]
-#' mellipse(data)
-#' mellipse(data, seg=FALSE, dx=0.1)
+#####
+# Compute points and rotation matrix
 
-mellipse <- function(x
+# input
+#theta <- c(1, 2)
+#sigma <- diag(c(3^2, 2^2))
+#sigma[2, 1] <- sigma[1, 2] <- sqrt(sigma[1, 1] * sigma[2, 2]) * .5
+nellipse <- function(x
     , points = TRUE
     , seg = TRUE
     , q=c(0.05, .25, .50, .75, .95)
@@ -115,8 +81,6 @@ mellipse <- function(x
     , cex =1
     , colp = 1 # barve za points
     , bold = ""
-    , dx = 0
-    , dy = 0
     , ...){
 # we start from points on the unit circle
 n_points <- 100
@@ -153,9 +117,7 @@ names(fonts) <- rownames(x)
     fonts[bold] <- 2
 #    text(x[bold,1],x[bold,2], bold, col=colp, font=2, cex=cex,  ...)
   }
-if (points) {
-  points(x[,1], x[,2],pch=16,cex=cex)
-  text(x[,1]+dx,x[,2]+dy, rownames(x), col=colp, cex=cex, font=fonts, ...)
+if (points) {text(x[,1],x[,2], rownames(x), col=colp, cex=cex, font=fonts, ...)
 
 }
 # Main axis
@@ -191,14 +153,19 @@ invisible(prcomp(x))
 
 ```
 
-Create Figure 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+tukle se lahko spreminja velikosti črt
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ```{r zeroTruncatedEllipsePercLarge, fig.cap="Ellipses (zero tuncated) encompassing 68% and 95%"}
+#tiff("./Elipsa.tif", width=4.75/2, height=2.5, res=300, units="in")
 par(mar=c(0.1,0.2,0.1,0.1)*2)
-mellipse(X*100
+nellipse(X*100
     , q = c(0.68,0.95)
     , seg = FALSE
-    , ylab = "Overlap in time (%)"
-    , xlab = "Overlap in time and frequency (%)"
+    , ylab = "Signal overlap in time (%)"
+    , xlab = "Signal overlap in time and frequency (%)"
     , lty = c(2,1)
     , xlim = c(0, 50)
     , ylim = c(0, 50)
@@ -209,67 +176,7 @@ mellipse(X*100
     , bty = "n"
     , colp = c(1,1,1,1,1,1,1,1)
     , bold = "T3"
-    , dx = c(-1, 1, -1.5, -1, 0,  0, 1, 1)*2.5
-    , dy = c( 0, 0,  0.0,  1, 1, -1, 0, 0)*2.5
    )
-
+#dev.off()
+X
 ```
-
-
-```{r}
-x <- matrix(rnorm(100*3), ncol = 3)
-x <- X
-stopifnot(mahalanobis(x, 0, diag(ncol(x))) == rowSums(x*x))
-        ##- Here, D^2 = usual squared Euclidean distances
-
-Sx <- cov(x)
-D2 <- mahalanobis(x, colMeans(x), Sx)
-plot(density(D2, bw = 0.5),
-     main="Squared Mahalanobis distances, n=100, p=3") ; rug(D2)
-qqplot(qchisq(ppoints(100), df = 3), D2,
-       main = expression("Q-Q plot of Mahalanobis" * ~D^2 *
-                         " vs. quantiles of" * ~ chi[3]^2))
-abline(0, 1, col = 'gray')
-#
-d <- sqrt(D2)
-d
-p <- 1-exp(-D2/2)
-p
-1-p
-```
-
-Kritične vrednosti 
-
-iz: Penny, K. (1996). Appropriate Critical Values When Testing for a Single Multivariate Outlier by Using the Mahalanobis Distance. Journal of the Royal Statistical Society. Series C (Applied Statistics), 45(1), 73-81. doi:10.2307/2986224
-
-```{r}
-
-p <- ncol(X)
-n <- nrow(X)
-p
-n
-alpha <- 0.05
-cr <- (p*(n-1)^2*qf(alpha/n, p, n-p-1))/
-      (n*(n-p-1+p*qf(alpha/n, p, n-p-1)))
-cr
-#
-qchisq(alpha/n,p)
-```
-
-```{r}
-F <- (n*D2*(n-p))/(p*(n-1)*(n+1))
-F
-1-pf(F,p,n-p)
-
-
-```
-
-
-
-
-
-
-
-
-
-
