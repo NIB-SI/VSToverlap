@@ -197,46 +197,136 @@ X
 
 
 ```{r}
-x <- matrix(rnorm(100*3), ncol = 3)
+#x <- matrix(rnorm(100*3), ncol = 3)
 x <- X
 stopifnot(mahalanobis(x, 0, diag(ncol(x))) == rowSums(x*x))
         ##- Here, D^2 = usual squared Euclidean distances
 
 Sx <- cov(x)
+#
+# Mahalanobis distance (squared)
+#
 D2 <- mahalanobis(x, colMeans(x), Sx)
+#
 plot(density(D2, bw = 0.5),
      main="Squared Mahalanobis distances, n=100, p=3") ; rug(D2)
-qqplot(qchisq(ppoints(100), df = 3), D2,
+xy <- qqplot(qchisq(ppoints(100), df = ncol(x)), D2,
        main = expression("Q-Q plot of Mahalanobis" * ~D^2 *
-                         " vs. quantiles of" * ~ chi[3]^2))
-abline(0, 1, col = 'gray')
+                         " vs. quantiles of" * ~ chi[2]^2)
+       , col = 1:nrow(X)
+       , pch = 16
+       , cex = c(1,1.5)[1+(names(sort(D2))=="T3")]
+       , ylim = c(0,max(D2)*1.1)
+       )
+text(xy$x, xy$y+0.2,names(xy$y))
+qqline(D2, col = 'gray'
+       , distribution=function(p) qchisq(p, df = ncol(x))
+       )
 #
-d <- sqrt(D2)
-d
-p <- 1-exp(-D2/2)
-p
-1-p
+# Approximate p from qq-plot
+#
+pq <- 1-pchisq(xy$y,2)
+pq
+pq["T3"]
+#
 ```
 
-Critical values
+## Test for outliers
+
+Based on:
+
+Krzanowski, W. J.
+Principles of Multivariate Analysis: A User's Perspective 
+Oxford University Press, Inc., 1988
+
+Mahalanobis distances are distributed as $\chi^2(df=2)$, 
+Special case for $p=2$ (See https://en.wikipedia.org/wiki/Mahalanobis_distance)
+
+$$P(d \leq t )= 1-e^{-t^2/2}$$
+
+```{r}
+D2
+t <- sqrt(D2)
+ps <- 1-exp(-t^2/2)
+ps
+
+```
+
+Probabilities, that Mahalanobis distance would exceed calculated distances:
+
+```{r}
+1-ps
+1-ps["T3"]
+```
+
+
+P values from simplified chisq distribution are equal to values based on qq-plot
+```{r}
+pc <- 1-ps # from simplified Chisq distribution
+pq <- 1-pchisq(xy$y,2)[names(ps)] # from qqplot
+pc
+pc
+round(pc-pq, 5)
+```
+
+### Conclusion
+Specifically:
+
+Based on chi-square distribution of Mahalanobis distances (Krzanowski, 1988) we can consider T3 as an outlier: ($p = `r round(1-ps["T3"],3)`$).
+
+
+## Critical values in another way
 
 From: Penny, K. (1996). Appropriate Critical Values When Testing for a Single Multivariate Outlier by Using the Mahalanobis Distance. Journal of the Royal Statistical Society. Series C (Applied Statistics), 45(1), 73-81. doi:10.2307/2986224
 
-```{r}
 
+Wilks critical value (p. 76)
+```{r}
 p <- ncol(X)
 n <- nrow(X)
 p
 n
 alpha <- 0.05
-cr <- (p*(n-1)^2*qf(alpha/n, p, n-p-1))/
-      (n*(n-p-1+p*qf(alpha/n, p, n-p-1)))
-cr
+Wilks.cr <- function(alpha=0.05, n, p){
+# calculates Wilk's critical value according to p. 76 of
+# Penny, K. (1996). Appropriate Critical Values When Testing for a 
+# Single Multivariate Outlier by Using the Mahalanobis Distance. 
+# Journal of the Royal Statistical Society. 
+# Series C (Applied Statistics), 45(1), 73-81. 
+# doi:10.2307/2986224
 #
-qchisq(alpha/n,p)
+# Bonferroni correction is applied
+#
+F <- qf(1-alpha/n, p, n-p-1)
+cr <- (p * (n-1)^2 * F)/
+      (n * (n-p-1+p * F))
+return(cr)
+}
+# Test: Table 2 in referenced text gives 6.32 for alpha = 0.05, n=10, p = 2
+#
+Wilks.cr( 0.05, 10, 2)        # text gives 6.32
+Wilks.cr( 0.01, n=10,  p= 5)  # text gives 7.98
+#
+
 ```
 
+Critical value for D2 
+
 ```{r}
+
+cr <- Wilks.cr( 0.35, n=nrow(X),  p= ncol(X))
+D2
+cr
+D2-cr
+Wilks.cr( 0.38, n=nrow(X),  p= ncol(X))
+alphas <-  seq(0.05,0.4, 0.01)
+D2
+data.frame(alphas,Wilks.cr(alphas, n=10,  p= 2))
+```
+
+
+```{r}
+D2
 F <- (n*D2*(n-p))/(p*(n-1)*(n+1))
 F
 ps <- 1-pf(F,p,n-p)
@@ -244,7 +334,10 @@ ps
 ps["T3"]
 ```
 
-Probability that T3 is not an outlier: $p = `r round(ps["T3"],3)`$
+### Conclusion
+Specifically:
+
+Based on Wilks critical values with Bonferroni correction (Penny, 1996) we can suspect T3 as an outlier:  $p = `r round(ps["T3"],3)`$
 
 ---
 
